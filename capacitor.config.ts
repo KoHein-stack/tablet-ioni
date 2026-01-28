@@ -3,7 +3,19 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.example.app',
   appName: 'TKK',
-  webDir: 'www'
+  webDir: 'www',
+  server: {
+    url: 'https://ionicframework.com/', // Your website URL
+    cleartext: true,
+    androidScheme: 'https',
+    iosScheme: 'https',
+    // hostname: 'your-website.com'
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true
+    }
+  }
 };
 
 export default config;
