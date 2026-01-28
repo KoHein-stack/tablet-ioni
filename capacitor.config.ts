@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'TKK',
   webDir: 'www',
   server: {
-    url: 'https://ionicframework.com/', // Your website URL
+    url: 'https://developer.android.com/', // Your website URL
     cleartext: true,
     androidScheme: 'https',
     iosScheme: 'https',
