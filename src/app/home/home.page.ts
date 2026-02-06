@@ -8,6 +8,7 @@ import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { AlertController, Platform } from '@ionic/angular';
 import { App } from '@capacitor/app';
 import { DeviceService } from '../services/device';
+import { GenexusService } from '../services/genexus';
 // import { InAppBrowser, ToolbarPosition } from '@capacitor/in-app-browser';
 @Component({
   selector: 'app-home',
@@ -15,7 +16,7 @@ import { DeviceService } from '../services/device';
   styleUrls: ['home.page.scss'],
   standalone: false,
 })
-export class HomePage { 
+export class HomePage {
 
   // constructor() {
   //   this.openBrowser();
@@ -39,7 +40,8 @@ export class HomePage {
 
 
 
-  private websiteUrl = "http://192.168.200.147:8080/tkz_gx18u10_wwp15344JavaPostgreSQL/com.tkzgx18u10wwp15344.z101_wp01_login";
+  private websiteUrl = 'http://192.168.200.134:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
+  // "http://192.168.200.147:8080/tkz_gx18u10_wwp15344JavaPostgreSQL/com.tkzgx18u10wwp15344.z101_wp01_login";
   // 'https://developer.android.com/';
   //  "https://122.103.187.60/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login"
   // 'https://developer.android.com/'; // Your website
@@ -52,11 +54,30 @@ export class HomePage {
   deviceInfo: any;
 
 
-  constructor(private platform: Platform, private alertCtrl: AlertController, private deviceService: DeviceService) { }
+  constructor(private platform: Platform, private alertCtrl: AlertController, private deviceService: DeviceService, private genexusService: GenexusService) { }
 
   async ngOnInit() {
+
     await this.platform.ready();
+    this.deviceId = await this.deviceService.getDeviceId();
+    this.deviceInfo = await this.deviceService.getDeviceInfo();
     this.initializeApp();
+    this.genexusService
+  .sendData(this.deviceId, this.deviceInfo.manufacturer)
+  .subscribe({
+    next: (res) => {
+      console.log('✅ sendData SUCCESS:', res);
+    },
+    error: (err) => {
+      console.error('❌ sendData ERROR:', err);
+      console.error('❌ STATUS:', err.status);
+      console.error('❌ MESSAGE:', err.message);
+    },
+    complete: () => {
+      console.log('ℹ️ sendData COMPLETED');
+    }
+  });
+
     await StatusBar.setOverlaysWebView({ overlay: false });
     await StatusBar.setBackgroundColor({ color: '#ffffff' });
     await StatusBar.setStyle({ style: StatusBarStyle.Dark });
@@ -104,13 +125,12 @@ export class HomePage {
     await alert.present();
   }
   async openWebsite() {
-  this.deviceId = await this.deviceService.getDeviceId();
-    this.deviceInfo = await this.deviceService.getDeviceInfo();
+
     const DefaultWebViewOptions = {
-      headers: {
-      "X-Device-ID": this.deviceId,
-      "X-Manufacturer": this.deviceInfo.manufacturer || "Unknown"
-    },
+      // headers: {
+      //   "X-Device-ID": this.deviceId,
+      //   "X-Manufacturer": this.deviceInfo.manufacturer || "Unknown"
+      // },
       showURL: true,
       showToolbar: true,
       clearCache: false,

@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
+import { GenexusService } from './genexus'
 
-import { DeviceService as Device } from './device';
 
-describe('Device', () => {
-  let service: Device;
+describe('Genexus', () => {
+  let service: GenexusService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(Device);
+    service = TestBed.inject(GenexusService);
   });
 
   it('should be created', () => {

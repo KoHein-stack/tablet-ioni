@@ -1,5 +1,8 @@
 {
-  "name": "tablet-ionic",
-  "integrations": {},
-  "type": "angular"
+  "name": "tkks-tablet",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular",
+  "proxyConfig": "proxy.conf.json"
 }
