@@ -40,7 +40,9 @@ export class HomePage {
 
 
 
-  private websiteUrl = 'http://192.168.200.134:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
+  private websiteUrl = 'http://192.168.105.186:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
+  // 'http://172.16.205.23:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
+  // 'http://192.168.200.134:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
   // "http://192.168.200.147:8080/tkz_gx18u10_wwp15344JavaPostgreSQL/com.tkzgx18u10wwp15344.z101_wp01_login";
   // 'https://developer.android.com/';
   //  "https://122.103.187.60/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login"
@@ -59,29 +61,27 @@ export class HomePage {
   async ngOnInit() {
 
     await this.platform.ready();
-    this.deviceId = await this.deviceService.getDeviceId();
-    this.deviceInfo = await this.deviceService.getDeviceInfo();
-    this.initializeApp();
-    this.genexusService
-  .sendData(this.deviceId, this.deviceInfo.manufacturer)
-  .subscribe({
-    next: (res) => {
-      console.log('✅ sendData SUCCESS:', res);
-    },
-    error: (err) => {
-      console.error('❌ sendData ERROR:', err);
-      console.error('❌ STATUS:', err.status);
-      console.error('❌ MESSAGE:', err.message);
-    },
-    complete: () => {
-      console.log('ℹ️ sendData COMPLETED');
-    }
-  });
+    // this.deviceId = await this.deviceService.getDeviceId();
+    // this.deviceInfo = await this.deviceService.getDeviceInfo();
+    // this.initializeApp();
+    // (await this.genexusService.sendData()).subscribe({
+    //   next: (res) => {
+    //     console.log('✅ sendData SUCCESS:', res);
+    //   },
+    //   error: (err) => {
+    //     console.error('❌ sendData ERROR:', err);
+    //     console.error('❌ STATUS:', err.status);
+    //     console.error('❌ MESSAGE:', err.message);
+    //   },
+    //   complete: () => {
+    //     console.log('ℹ️ sendData COMPLETED');
+    //   }
+    // });
 
-    await StatusBar.setOverlaysWebView({ overlay: false });
-    await StatusBar.setBackgroundColor({ color: '#ffffff' });
-    await StatusBar.setStyle({ style: StatusBarStyle.Dark });
-    await StatusBar.hide();
+    // await StatusBar.setOverlaysWebView({ overlay: false });
+    // await StatusBar.setBackgroundColor({ color: '#ffffff' });
+    // await StatusBar.setStyle({ style: StatusBarStyle.Dark });
+    // await StatusBar.hide();
     this.openWebsite();
   }
 

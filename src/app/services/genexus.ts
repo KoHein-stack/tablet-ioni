@@ -30,7 +30,7 @@ export class GenexusService { // Renamed slightly for standard naming convention
     const httpOptions = {
       headers: new HttpHeaders({
         'Content-Type': 'application/json',
-        'deviceId': id,
+        'deviceId': id.toString(),
         'manufacturer': name
       })
     };
