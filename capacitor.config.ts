@@ -11,20 +11,14 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    // url: 'https://developer.android.com/', // Your website URL
-    url: 'http://192.168.105.186:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login',
-    //  'http://172.16.205.23:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login',
-    // 'http://192.168.200.134:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login',
-    //  "http://192.168.200.147:8080/tkz_gx18u10_wwp15344JavaPostgreSQL/com.tkzgx18u10wwp15344.z101_wp01_login",
-    // url: "https://122.103.187.60/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login",
+    url: 'http://192.168.200.117:8070/tkz_gx18u10_wwp1534_newJavaPostgreSQL/com.tkzgx18u10wwp1534new.z101_wp01_login',
     cleartext: true,
-    androidScheme: 'https',
-    iosScheme: 'https',
+    androidScheme: 'http',
+    iosScheme: 'http',
     allowNavigation: [
       'http://localhost:*',
-      'http://192.168.*.*:*'
+      'http://192.168.200.117:8070'
     ]
-    // hostname: 'your-website.com'
   },
   // plugins: {
   //   CapacitorHttp: {

@@ -10,6 +10,8 @@ import { App } from '@capacitor/app';
 import { DeviceService } from '../services/device';
 import { GenexusService } from '../services/genexus';
 // import { InAppBrowser, ToolbarPosition } from '@capacitor/in-app-browser';
+import { environment } from 'src/environments/environment';
+
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
@@ -18,39 +20,8 @@ import { GenexusService } from '../services/genexus';
 })
 export class HomePage {
 
-  // constructor() {
-  //   this.openBrowser();
-  // }
+  private websiteUrl = environment.websiteUrl;
 
-  //   openBrowser() {
-  //     Browser.open({ url: 'https://ionicframework.com/' });
-  //   }
-  //   async openInApp() {
-  //     await Browser.open({
-  //       url: 'https://ionicframework.com/',
-  //       showTitle: true,
-  //       toolbarColor: '#3880ff',
-  //       closeButtonCaption: 'Done',
-  //       presentationStyle: 'popover' // For tablets
-  //     });
-  //   }
-
-  // }
-
-
-
-
-  private websiteUrl = 'http://192.168.105.186:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
-  // 'http://172.16.205.23:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
-  // 'http://192.168.200.134:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'
-  // "http://192.168.200.147:8080/tkz_gx18u10_wwp15344JavaPostgreSQL/com.tkzgx18u10wwp15344.z101_wp01_login";
-  // 'https://developer.android.com/';
-  //  "https://122.103.187.60/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login"
-  // 'https://developer.android.com/'; // Your website
-
-  // constructor() {
-  //   this.initializeApp();
-  // }
   safeAreaTop: number = 0;
   deviceId: any;
   deviceInfo: any;
@@ -61,28 +32,43 @@ export class HomePage {
   async ngOnInit() {
 
     await this.platform.ready();
-    // this.deviceId = await this.deviceService.getDeviceId();
-    // this.deviceInfo = await this.deviceService.getDeviceInfo();
-    // this.initializeApp();
-    // (await this.genexusService.sendData()).subscribe({
-    //   next: (res) => {
-    //     console.log('✅ sendData SUCCESS:', res);
-    //   },
-    //   error: (err) => {
-    //     console.error('❌ sendData ERROR:', err);
-    //     console.error('❌ STATUS:', err.status);
-    //     console.error('❌ MESSAGE:', err.message);
-    //   },
-    //   complete: () => {
-    //     console.log('ℹ️ sendData COMPLETED');
-    //   }
-    // });
 
-    // await StatusBar.setOverlaysWebView({ overlay: false });
-    // await StatusBar.setBackgroundColor({ color: '#ffffff' });
-    // await StatusBar.setStyle({ style: StatusBarStyle.Dark });
-    // await StatusBar.hide();
+    if (!navigator.onLine) {
+      this.presentOfflineAlert();
+    }
+    window.addEventListener('offline', () => {
+      this.presentOfflineAlert();
+    });
+
+    try {
+      this.deviceId = await this.deviceService.getDeviceId();
+      this.deviceInfo = await this.deviceService.getDeviceInfo();
+
+      this.genexusService.sendData(this.deviceId, this.deviceInfo.manufacturer).subscribe({
+        next: (res) => {
+          console.log('✅ sendData SUCCESS:', res);
+        },
+        error: (err) => {
+          console.error('❌ sendData ERROR:', err);
+        },
+        complete: () => {
+          console.log('ℹ️ sendData COMPLETED');
+        }
+      });
+    } catch (e) {
+      console.error("Error getting device info or sending data", e);
+    }
+
     this.openWebsite();
+  }
+
+  async presentOfflineAlert() {
+    const alert = await this.alertCtrl.create({
+      header: 'No Internet Connection',
+      message: 'Please check your internet connection and try again.',
+      buttons: ['OK']
+    });
+    await alert.present();
   }
 
   // async openWebsite() {
