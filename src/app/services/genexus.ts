@@ -1,35 +1,21 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
-import { DeviceService } from './device';
 
 @Injectable({
   providedIn: 'root',
 })
 export class GenexusService {
+  private readonly apiUrl = environment.apiUrl;
 
-  // Ensure environment has the base URL string
-  private apiUrl = environment.apiUrl;
-
-  constructor(private http: HttpClient) {
-  }
+  constructor(private readonly http: HttpClient) {}
 
   sendData(id: string, name: string) {
     const body = {
       deviceId: id,
-      manufacturer: name
+      manufacturer: name,
     };
-    console.log('app is api calling!')
 
-    // const httpOptions = {
-    //   headers: new HttpHeaders({
-    //     'Content-Type': 'application/json',
-    //     'deviceId': id,
-    //     'manufacturer': name
-    //   })
-    // };
-    // httpOptions
-
-    return this.http.post<any>(`${this.apiUrl}`, body);
+    return this.http.post<any>(this.apiUrl, body);
   }
 }
