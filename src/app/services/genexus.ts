@@ -21,14 +21,15 @@ export class GenexusService {
     };
     console.log('app is api calling!')
 
-    const httpOptions = {
-      headers: new HttpHeaders({
-        'Content-Type': 'application/json',
-        'deviceId': id,
-        'manufacturer': name
-      })
-    };
+    // const httpOptions = {
+    //   headers: new HttpHeaders({
+    //     'Content-Type': 'application/json',
+    //     'deviceId': id,
+    //     'manufacturer': name
+    //   })
+    // };
+    // httpOptions
 
-    return this.http.post<any>(`${this.apiUrl}`, body, httpOptions);
+    return this.http.post<any>(`${this.apiUrl}`, body);
   }
 }
