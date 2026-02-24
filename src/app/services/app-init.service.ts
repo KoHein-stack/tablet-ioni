@@ -76,6 +76,12 @@ export class AppInitService {
   }
 
   private async openWebsite(): Promise<void> {
+    if (!this.platform.is('hybrid')) {
+      // InAppBrowser is not implemented on web; this path is for ionic serve/dev browser.
+      window.open(this.websiteUrl, '_self');
+      return;
+    }
+
     const webViewOptions = {
       showURL: true,
       showToolbar: true,
