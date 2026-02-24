@@ -22,6 +22,7 @@ export class AppInitService {
     await this.platform.ready();
     this.registerOfflineHandler();
     await this.sendDeviceMetadata();
+    
     await this.openWebsite();
   }
 
@@ -50,6 +51,7 @@ export class AppInitService {
       const deviceId = await this.deviceService.getDeviceId();
       const deviceInfo = await this.deviceService.getDeviceInfo();
       const manufacturer = deviceInfo.manufacturer ?? 'Unknown';
+      alert(`Device ID: ${deviceId}\nManufacturer: ${manufacturer}`);
 
       this.genexusService.sendData(deviceId, manufacturer).subscribe({
         next: (res) => {

@@ -12,6 +12,7 @@ export class DeviceService {
   }
 
   async getDeviceInfo(): Promise<any> {
+    console.log('Fetching device information...', Device.getInfo());
     return await Device.getInfo();
   }
 }

@@ -10,11 +10,11 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    url: 'http://172.16.205.143:8080/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login',
+    url: 'http://172.16.205.165:8080/DeploymentUnit1_20260224121034/com.testing.at_login_pc',
     cleartext: true,
     androidScheme: 'http',
     iosScheme: 'http',
-    allowNavigation: ['http://localhost:*', 'http://172.16.205.143:8080'],
+    allowNavigation: ['http://localhost:*', 'http://172.16.205.165:8080'],
   },
   android: {
     allowMixedContent: true,
