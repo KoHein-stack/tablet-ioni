@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    // url: 'http://172.16.205.197:8080/DeploymentUnit2_20260224215411/com.testing.adevice_login',
+    url: 'https://www.github.com',
     cleartext: true,
     androidScheme: 'http',
     iosScheme: 'http',

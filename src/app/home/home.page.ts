@@ -18,8 +18,9 @@ export class HomePage {
   ) { }
 
   async ngOnInit(): Promise<void> {
-    await this.appInitService.initialize({ openWebsite: false });
     this.deviceInfo = await this.deviceService.getDeviceInfo();
+    console.log('Device Info:', this.deviceInfo);
+    await this.appInitService.initialize({ openWebsite: true });
 
   }
 
