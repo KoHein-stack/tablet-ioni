@@ -1,39 +1,39 @@
 import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
-import { InAppBrowser, ToolbarPosition, iOSAnimation, iOSViewStyle } from '@capacitor/inappbrowser';
 import { DeviceService } from './device';
-import { GenexusService } from './genexus';
+import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AppInitService {
   private readonly websiteUrl = environment.websiteUrl;
-
+  private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
   constructor(
     private readonly platform: Platform,
     private readonly alertCtrl: AlertController,
     private readonly deviceService: DeviceService,
     private readonly genexusService: GenexusService
-  ) {}
+  ) {
+    console.log('Deployment Base URL:', this.deploymentBaseUrl);
 
-  async initialize(): Promise<void> {
+  }
+
+  async initialize(options?: { openWebsite?: boolean }): Promise<void> {
+    const shouldOpenWebsite = options?.openWebsite ?? true;
     await this.platform.ready();
     this.registerOfflineHandler();
-    await this.sendDeviceMetadata();
-    
-    await this.openWebsite();
+    const targetUrl = await this.sendDeviceMetadata();
+    console.log('Target URL to open:', targetUrl);
+    if (shouldOpenWebsite) {
+      await this.openWebsite(targetUrl);
+    }
   }
 
   async reloadWebsite(): Promise<void> {
-    try {
-      await InAppBrowser.close();
-    } catch {
-      // Ignore if there is no active browser to close.
-    }
-
-    await this.openWebsite();
+    await this.openWebsite(this.websiteUrl);
   }
 
   private registerOfflineHandler(): void {
@@ -46,24 +46,59 @@ export class AppInitService {
     });
   }
 
-  private async sendDeviceMetadata(): Promise<void> {
+  private async sendDeviceMetadata(): Promise<string> {
     try {
-      const deviceId = await this.deviceService.getDeviceId();
-      const deviceInfo = await this.deviceService.getDeviceInfo();
-      const manufacturer = deviceInfo.manufacturer ?? 'Unknown';
-      alert(`Device ID: ${deviceId}\nManufacturer: ${manufacturer}`);
+      let deviceId = 'Error: could not get ID';
+      try {
+        deviceId = await this.deviceService.getDeviceId();
+      } catch (e: any) {
+        deviceId = `ID Error: ${e.message || JSON.stringify(e)}`;
+      }
 
-      this.genexusService.sendData(deviceId, manufacturer).subscribe({
-        next: (res) => {
-          console.log('sendData SUCCESS:', res);
-        },
-        error: (err) => {
-          console.error('sendData ERROR:', err);
-        },
+      let manufacturer = 'Unknown';
+      try {
+        const deviceInfo = await this.deviceService.getDeviceInfo();
+        console.log('AppInitService: Device Info:', deviceInfo);
+        manufacturer = deviceInfo.manufacturer ?? 'Unknown';
+      } catch (e: any) {
+        manufacturer = `Info Error: ${e.message || JSON.stringify(e)}`;
+      }
+
+      // DIAGNOSTIC ALERT: Keep this to show EXACTLY what is happening
+      const diagAlert = await this.alertCtrl.create({
+        header: 'Diagnostic Info',
+        message: `ID: ${deviceId}\nManufacturer: ${manufacturer}`,
+        buttons: ['OK']
       });
+      await diagAlert.present();
+
+      const res: DeviceLoginResponse = await firstValueFrom(
+        this.genexusService.sendData(deviceId, manufacturer)
+      );
+      console.log('sendData SUCCESS:', res);
+
+      if (res?.isAllowed) {
+        console.log('Redirecting to:', res.redirectUrl);
+        if (res.redirectUrl) {
+          const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
+          let redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
+
+          // Append device info to redirect URL as query params for the backend
+          const connector = redirectUrl.includes('?') ? '&' : '?';
+          redirectUrl += `${connector}P_deviceId=${encodeURIComponent(deviceId)}&P_manufacturer=${encodeURIComponent(manufacturer)}`;
+
+          console.log('Resolved redirect URL with params:', redirectUrl);
+          return redirectUrl;
+        }
+        return this.websiteUrl;
+      }
+
+      return this.websiteUrl;
     } catch (error) {
       console.error('Error getting device info or sending data', error);
     }
+
+    return this.websiteUrl;
   }
 
   private async presentOfflineAlert(): Promise<void> {
@@ -75,42 +110,9 @@ export class AppInitService {
     await alert.present();
   }
 
-  private async openWebsite(): Promise<void> {
-    if (!this.platform.is('hybrid')) {
-      // InAppBrowser is not implemented on web; this path is for ionic serve/dev browser.
-      window.open(this.websiteUrl, '_self');
-      return;
-    }
 
-    const webViewOptions = {
-      showURL: true,
-      showToolbar: true,
-      clearCache: false,
-      clearSessionCache: false,
-      mediaPlaybackRequiresUserAction: false,
-      closeButtonText: 'Close',
-      toolbarPosition: ToolbarPosition.TOP,
-      showNavigationButtons: true,
-      leftToRight: false,
-      android: {
-        allowZoom: true,
-        hardwareBack: true,
-        pauseMedia: false,
-      },
-      iOS: {
-        allowOverScroll: false,
-        enableViewportScale: false,
-        allowInLineMediaPlayback: true,
-        surpressIncrementalRendering: false,
-        viewStyle: iOSViewStyle.FULL_SCREEN,
-        animationEffect: iOSAnimation.COVER_VERTICAL,
-        allowsBackForwardNavigationGestures: true,
-      },
-    };
-
-    await InAppBrowser.openInWebView({
-      url: this.websiteUrl,
-      options: webViewOptions,
-    });
+  private async openWebsite(url: string): Promise<void> {
+    console.log('Opening URL in app webview:', url);
+    window.location.assign(url);
   }
 }

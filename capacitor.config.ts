@@ -10,11 +10,11 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    url: 'http://172.16.205.165:8080/DeploymentUnit1_20260224121034/com.testing.at_login_pc',
+    // url: 'http://172.16.205.197:8080/DeploymentUnit2_20260224215411/com.testing.adevice_login',
     cleartext: true,
     androidScheme: 'http',
     iosScheme: 'http',
-    allowNavigation: ['http://localhost:*', 'http://172.16.205.165:8080'],
+    allowNavigation: ['http://localhost:*', 'http://172.16.205.197:8080'],
   },
   android: {
     allowMixedContent: true,

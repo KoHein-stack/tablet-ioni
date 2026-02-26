@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { RefresherCustomEvent } from '@ionic/angular';
 import { AppInitService } from '../services/app-init.service';
+import { DeviceService } from '../services/device';
+import { GenexusService } from '../services/genexus';
 
 @Component({
   selector: 'app-home',
@@ -9,10 +11,16 @@ import { AppInitService } from '../services/app-init.service';
   standalone: false,
 })
 export class HomePage {
-  constructor(private readonly appInitService: AppInitService) {}
+  deviceInfo: any;
+  constructor(private readonly appInitService: AppInitService,
+    private readonly deviceService: DeviceService,
+    private readonly genexusService: GenexusService
+  ) { }
 
   async ngOnInit(): Promise<void> {
-    await this.appInitService.initialize();
+    await this.appInitService.initialize({ openWebsite: false });
+    this.deviceInfo = await this.deviceService.getDeviceInfo();
+
   }
 
   async reload(): Promise<void> {
