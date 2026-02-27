@@ -7,6 +7,10 @@ const routes: Routes = [
     loadChildren: () => import('./home/home.module').then( m => m.HomePageModule)
   },
   {
+    path: 'not-found',
+    loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
+  },
+  {
     path: '',
     redirectTo: 'home',
     pathMatch: 'full'

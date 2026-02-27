@@ -48,11 +48,11 @@ export class AppInitService {
 
   private async sendDeviceMetadata(): Promise<string> {
     try {
-      let deviceId = 'Error: could not get ID';
+      let deviceId = 'unknown-device';
       try {
         deviceId = await this.deviceService.getDeviceId();
       } catch (e: any) {
-        deviceId = `ID Error: ${e.message || JSON.stringify(e)}`;
+        console.warn('Device ID read failed, using fallback value', e);
       }
 
       let manufacturer = 'Unknown';
@@ -61,44 +61,32 @@ export class AppInitService {
         console.log('AppInitService: Device Info:', deviceInfo);
         manufacturer = deviceInfo.manufacturer ?? 'Unknown';
       } catch (e: any) {
-        manufacturer = `Info Error: ${e.message || JSON.stringify(e)}`;
+        console.warn('Device info read failed, using fallback manufacturer', e);
       }
-
-      // DIAGNOSTIC ALERT: Keep this to show EXACTLY what is happening
-      const diagAlert = await this.alertCtrl.create({
-        header: 'Diagnostic Info',
-        message: `ID: ${deviceId}\nManufacturer: ${manufacturer}`,
-        buttons: ['OK']
-      });
-      await diagAlert.present();
 
       const res: DeviceLoginResponse = await firstValueFrom(
         this.genexusService.sendData(deviceId, manufacturer)
       );
-      console.log('sendData SUCCESS:', res);
+      // console.log('sendData SUCCESS:', res);
 
-      if (res?.isAllowed) {
-        console.log('Redirecting to:', res.redirectUrl);
-        if (res.redirectUrl) {
-          const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
-          let redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
+      // const res = await firstValueFrom(this.genexusService.sendData(deviceId, manufacturer));
+      // console.log('Success', res);
 
-          // Append device info to redirect URL as query params for the backend
-          const connector = redirectUrl.includes('?') ? '&' : '?';
-          redirectUrl += `${connector}P_deviceId=${encodeURIComponent(deviceId)}&P_manufacturer=${encodeURIComponent(manufacturer)}`;
 
-          console.log('Resolved redirect URL with params:', redirectUrl);
-          return redirectUrl;
-        }
-        return this.websiteUrl;
+      if (res?.isAllowed && res.redirectUrl) {
+        const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
+        const redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
+        console.log('Resolved redirect URL:', redirectUrl);
+        return redirectUrl;
       }
 
-      return this.websiteUrl;
+      // No hardcoded backend route: show local 404 page inside the app.
+      return '/not-found';
     } catch (error) {
       console.error('Error getting device info or sending data', error);
     }
 
-    return this.websiteUrl;
+    return '/not-found';
   }
 
   private async presentOfflineAlert(): Promise<void> {
@@ -112,6 +100,23 @@ export class AppInitService {
 
 
   private async openWebsite(url: string): Promise<void> {
+    // If it's an in-app route, use the SPA router (no external navigation).
+    if (url.startsWith('/')) {
+      console.log('Opening in-app route:', url);
+      window.location.hash = `#${url}`;
+      return;
+    }
+
+    if (this.platform.is('hybrid')) {
+      const w: any = window as any;
+      const iab = w?.cordova?.InAppBrowser;
+      if (iab?.open) {
+        // Cordova InAppBrowser: stays inside the app (no Chrome UI).
+        iab.open(url, '_blank', 'location=no,toolbar=no,hideurlbar=yes,zoom=no');
+        return;
+      }
+    }
+
     console.log('Opening URL in app webview:', url);
     window.location.assign(url);
   }

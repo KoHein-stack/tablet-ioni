@@ -10,11 +10,18 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    url: 'https://www.github.com',
+    // url : "http://172.16.205.15:8080/DeploymentUnit2_20260224215411/com.testing.adevice_login",
     cleartext: true,
     androidScheme: 'http',
     iosScheme: 'http',
-    allowNavigation: ['http://localhost:*', 'http://172.16.205.197:8080'],
+    // If the target host is not listed here, Android may hand navigation off to Chrome.
+    allowNavigation: [
+      // Use host patterns (not full URLs) so Capacitor matches redirects too.
+      'localhost',
+      '172.16.205.15',
+      '172.16.205.197',
+      '192.168.105.114',
+    ],
   },
   android: {
     allowMixedContent: true,

@@ -17,20 +17,10 @@ export class GenexusService {
 
   sendData(id: string, name: string) {
     console.log('Sending data to Genexus API:', { id, name });
-
-    // Body parameters (matching Postman test)
-    // const body = {
-    //   deviceId: id,
-    //   manufacturer: name,
-    // };
-
-    // // Query parameters (matching GeneXus log pattern &P_...)
-    // const params = {
-    //   deviceId: id,
-    //   manufacturer: name,
-    //   P_deviceId: id,        // Also include P_ version for safety
-    //   P_manufacturer: name,
-    // };
+    const body = {
+      deviceId: id,
+      manufacturer: name,
+    };
 
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
@@ -38,6 +28,6 @@ export class GenexusService {
       'DeviceId': id,
     });
 
-    return this.http.post<DeviceLoginResponse>(this.apiUrl,  { headers });
+    return this.http.post<DeviceLoginResponse>(this.apiUrl, body, { headers });
   }
 }
