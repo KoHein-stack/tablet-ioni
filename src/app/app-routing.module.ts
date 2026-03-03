@@ -4,6 +4,7 @@ import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
 const routes: Routes = [
   {
     path: '',
+    pathMatch: 'full',
     loadComponent: () => import('./startup/startup.page').then(m => m.StartupPage),
   },
   {
@@ -13,6 +14,10 @@ const routes: Routes = [
   {
     path: 'not-found',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
+  },
+  {
+    path: '**',
+    redirectTo: 'not-found',
   },
 ];
 

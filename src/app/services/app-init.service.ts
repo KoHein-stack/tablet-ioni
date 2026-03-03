@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Router } from '@angular/router';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
@@ -13,10 +15,12 @@ export class AppInitService {
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
   private deviceId = 'unknown-device';
   private manufacturer = 'Unknown';
+  private iabRef: any;
 
   constructor(
     private readonly platform: Platform,
     private readonly alertCtrl: AlertController,
+    private readonly router: Router,
     private readonly deviceService: DeviceService,
     private readonly genexusService: GenexusService
   ) {
@@ -36,7 +40,15 @@ export class AppInitService {
   }
 
   async reloadWebsite(): Promise<void> {
-    await this.openWebsite(this.websiteUrl);
+    if (this.iabRef?.close) {
+      try {
+        this.iabRef.close();
+      } catch (e) {
+        console.warn('Failed to close existing in-app browser', e);
+      }
+    }
+    // await this.openWebsite(this.websiteUrl);
+    await this.initialize({ openWebsite: true });
   }
 
   private registerOfflineHandler(): void {
@@ -105,7 +117,7 @@ export class AppInitService {
     // If it's an in-app route, use the SPA router (no external navigation).
     if (url.startsWith('/')) {
       console.log('Opening in-app route:', url);
-      window.location.hash = `#${url}`;
+      await this.router.navigateByUrl(url, { replaceUrl: true });
       return;
     }
 
@@ -115,8 +127,18 @@ export class AppInitService {
       const w: any = window as any;
       const iab = w?.cordova?.InAppBrowser;
       if (iab?.open) {
-        // Cordova InAppBrowser: stays inside the app (no Chrome UI).
-        iab.open(trackedUrl, '_blank', 'location=no,toolbar=no,hideurlbar=yes,zoom=no');
+        this.iabRef = iab.open(
+          trackedUrl,
+          '_blank',
+          'location=no,toolbar=no,hideurlbar=yes,zoom=no,hardwareback=yes'
+        );
+
+        // If user swipes/back-closes the website view, exit app to avoid white startup page.
+        if (this.iabRef?.addEventListener) {
+          this.iabRef.addEventListener('exit', () => {
+            void CapacitorApp.exitApp();
+          });
+        }
         return;
       }
     }
