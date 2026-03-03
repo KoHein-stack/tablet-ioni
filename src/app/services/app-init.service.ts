@@ -11,6 +11,9 @@ import { firstValueFrom } from 'rxjs';
 export class AppInitService {
   private readonly websiteUrl = environment.websiteUrl;
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
+  private deviceId = 'unknown-device';
+  private manufacturer = 'Unknown';
+
   constructor(
     private readonly platform: Platform,
     private readonly alertCtrl: AlertController,
@@ -48,24 +51,22 @@ export class AppInitService {
 
   private async sendDeviceMetadata(): Promise<string> {
     try {
-      let deviceId = 'unknown-device';
       try {
-        deviceId = await this.deviceService.getDeviceId();
+        this.deviceId = await this.deviceService.getDeviceId();
       } catch (e: any) {
         console.warn('Device ID read failed, using fallback value', e);
       }
 
-      let manufacturer = 'Unknown';
       try {
         const deviceInfo = await this.deviceService.getDeviceInfo();
         console.log('AppInitService: Device Info:', deviceInfo);
-        manufacturer = deviceInfo.manufacturer ?? 'Unknown';
+        this.manufacturer = deviceInfo.manufacturer ?? 'Unknown';
       } catch (e: any) {
         console.warn('Device info read failed, using fallback manufacturer', e);
       }
 
       const res: DeviceLoginResponse = await firstValueFrom(
-        this.genexusService.sendData(deviceId, manufacturer)
+        this.genexusService.sendData(this.deviceId, this.manufacturer)
       );
       // console.log('sendData SUCCESS:', res);
 
@@ -76,8 +77,9 @@ export class AppInitService {
       if (res?.isAllowed && res.redirectUrl) {
         const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
         const redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
-        console.log('Resolved redirect URL:', redirectUrl);
-        return redirectUrl;
+        const trackedUrl = this.withDeviceParams(redirectUrl);
+        console.log('Resolved redirect URL:', trackedUrl);
+        return trackedUrl;
       }
 
       // No hardcoded backend route: show local 404 page inside the app.
@@ -107,17 +109,28 @@ export class AppInitService {
       return;
     }
 
+    const trackedUrl = this.withDeviceParams(url);
+
     if (this.platform.is('hybrid')) {
       const w: any = window as any;
       const iab = w?.cordova?.InAppBrowser;
       if (iab?.open) {
         // Cordova InAppBrowser: stays inside the app (no Chrome UI).
-        iab.open(url, '_blank', 'location=no,toolbar=no,hideurlbar=yes,zoom=no');
+        iab.open(trackedUrl, '_blank', 'location=no,toolbar=no,hideurlbar=yes,zoom=no');
         return;
       }
     }
 
-    console.log('Opening URL in app webview:', url);
-    window.location.assign(url);
+    console.log('Opening URL in app webview:', trackedUrl);
+    window.location.assign(trackedUrl);
+  }
+
+  private withDeviceParams(url: string): string {
+    if (!url.startsWith(this.deploymentBaseUrl)) {
+      return url;
+    }
+
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}deviceId=${encodeURIComponent(this.deviceId)}&manufacturer=${encodeURIComponent(this.manufacturer)}`;
   }
 }
