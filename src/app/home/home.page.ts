@@ -12,6 +12,7 @@ import { GenexusService } from '../services/genexus';
 })
 export class HomePage implements OnInit {
   deviceInfo: any;
+  deviceId: any
   lastCheckedAt = new Date();
 
   constructor(private readonly appInitService: AppInitService,
@@ -21,6 +22,7 @@ export class HomePage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.deviceInfo = await this.deviceService.getDeviceInfo();
+    this.deviceId = await this.deviceService.getDeviceId();
     this.lastCheckedAt = new Date();
     console.log('Device Info:', this.deviceInfo);
   }
@@ -30,6 +32,7 @@ export class HomePage implements OnInit {
   }
 
   async reload(): Promise<void> {
+
     await this.appInitService.reloadWebsite();
     this.lastCheckedAt = new Date();
   }

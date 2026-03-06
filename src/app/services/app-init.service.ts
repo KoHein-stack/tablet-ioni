@@ -11,7 +11,8 @@ import { firstValueFrom } from 'rxjs';
   providedIn: 'root',
 })
 export class AppInitService {
-  private readonly websiteUrl = environment.websiteUrl;
+  private readonly apiUrl = environment.apiUrl;
+  private readonly websiteUrl = this.normalizeBaseUrl(environment.websiteUrl);
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
   private deviceId = 'unknown-device';
   private manufacturer = 'Unknown';
@@ -80,6 +81,12 @@ export class AppInitService {
       const res: DeviceLoginResponse = await firstValueFrom(
         this.genexusService.sendData(this.deviceId, this.manufacturer)
       );
+      const alert = await this.alertCtrl.create({
+        header: 'Server Response',
+        message: `res?.isAllowed: ${res?.isAllowed}, res?.redirectUrl: ${res?.redirectUrl}  `,
+        buttons: ['OK'],
+      });
+      await alert.present();
       // console.log('sendData SUCCESS:', res);
 
       // const res = await firstValueFrom(this.genexusService.sendData(deviceId, manufacturer));
@@ -87,20 +94,22 @@ export class AppInitService {
 
 
       if (res?.isAllowed && res.redirectUrl) {
-        const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
-        const redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
+        const redirectUrl = this.resolveServerRedirect(res.redirectUrl);
         const trackedUrl = this.withDeviceParams(redirectUrl);
         console.log('Resolved redirect URL:', trackedUrl);
         return trackedUrl;
       }
 
+      // await alert.present();
       // No hardcoded backend route: show local 404 page inside the app.
       return '/not-found';
+      // return this.apiUrl; // For testing, open API URL directly to see response.
     } catch (error) {
       console.error('Error getting device info or sending data', error);
     }
 
     return '/not-found';
+    // return this.apiUrl;
   }
 
   private async presentOfflineAlert(): Promise<void> {
@@ -114,6 +123,7 @@ export class AppInitService {
 
 
   private async openWebsite(url: string): Promise<void> {
+    console.log('Attempting to open URL:', url);
     // If it's an in-app route, use the SPA router (no external navigation).
     if (url.startsWith('/')) {
       console.log('Opening in-app route:', url);
@@ -154,5 +164,48 @@ export class AppInitService {
 
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}deviceId=${encodeURIComponent(this.deviceId)}&manufacturer=${encodeURIComponent(this.manufacturer)}`;
+  }
+
+  private normalizeBaseUrl(url: string): string {
+    const trimmed = (url ?? '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const absolute = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, '')}`;
+    const parsed = new URL(absolute);
+    if (!parsed.pathname.endsWith('/')) {
+      parsed.pathname = `${parsed.pathname}/`;
+    }
+    return parsed.toString();
+  }
+
+  private resolveServerRedirect(redirectUrl: string): string {
+    const raw = (redirectUrl ?? '').trim();
+    if (!raw) {
+      return '/not-found';
+    }
+
+    if (/^https?:\/\//i.test(raw)) {
+      return raw;
+    }
+
+    if (/^\/\//.test(raw)) {
+      return `https:${raw}`;
+    }
+
+    if (/^[a-z0-9.-]+:\d{1,5}\//i.test(raw)) {
+      return `https://${raw.replace(/^\/+/, '')}`;
+    }
+
+    const base = new URL(this.websiteUrl);
+    const basePath = base.pathname.replace(/\/+$/, '');
+    const basePathNoLead = basePath.replace(/^\/+/, '');
+    const normalized = raw.replace(/^\/+/, '');
+    if (basePathNoLead && normalized.toLowerCase().startsWith(`${basePathNoLead.toLowerCase()}/`)) {
+      return `${base.origin}/${normalized}`;
+    }
+
+    return new URL(normalized, `${base.origin}${basePath}/`).toString();
   }
 }

@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<network-security-config>
-  <!-- Allow cleartext HTTP for internal GeneXus/Tomcat hosts -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system"/>
+      <certificates src="user" tools:ignore="AcceptsUserCertificates"/>
+    </trust-anchors>
+  </base-config>
+
+  <!-- Allow HTTP only for internal servers -->
   <domain-config cleartextTrafficPermitted="true">
     <domain includeSubdomains="true">172.16.205.15</domain>
     <domain includeSubdomains="true">172.16.205.197</domain>
     <domain includeSubdomains="true">192.168.105.114</domain>
+    <domain includeSubdomains="true">122.103.187.60</domain>
   </domain-config>
+
 </network-security-config>

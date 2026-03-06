@@ -15,10 +15,10 @@ const routes: Routes = [
     path: 'not-found',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   },
-  {
-    path: '**',
-    redirectTo: 'not-found',
-  },
+  // {
+  //   path: '**',
+  //   redirectTo: 'not-found',
+  // },
 ];
 
 @NgModule({
