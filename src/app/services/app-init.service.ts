@@ -10,9 +10,13 @@ import { firstValueFrom } from 'rxjs';
   providedIn: 'root',
 })
 export class AppInitService {
-  private readonly websiteUrl = environment.websiteUrl;
+   private readonly apiUrl = environment.apiUrl;
+  private readonly websiteUrl = this.normalizeBaseUrl(environment.websiteUrl);
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
-  private iabRef: any = null;
+  private deviceId = 'unknown-device';
+  private manufacturer = 'Unknown';
+  private iabRef: any;
+
 
   constructor(
     private readonly platform: Platform,
@@ -137,5 +141,12 @@ export class AppInitService {
     }
 
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  private normalizeBaseUrl(url: string): string {
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'http://' + url;
+    }
+    return url;
   }
 }
