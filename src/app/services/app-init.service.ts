@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
+import { InAppBrowser } from '@capacitor/inappbrowser';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
@@ -11,6 +12,7 @@ import { firstValueFrom } from 'rxjs';
 export class AppInitService {
   private readonly websiteUrl = environment.websiteUrl;
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
+
   constructor(
     private readonly platform: Platform,
     private readonly alertCtrl: AlertController,
@@ -82,6 +84,7 @@ export class AppInitService {
         if (res.redirectUrl) {
           const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
           let redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
+          console.log('Constructed redirect URL:', redirectUrl);
 
           // Append device info to redirect URL as query params for the backend
           const connector = redirectUrl.includes('?') ? '&' : '?';
@@ -110,9 +113,17 @@ export class AppInitService {
     await alert.present();
   }
 
-
   private async openWebsite(url: string): Promise<void> {
-    console.log('Opening URL in app webview:', url);
-    window.location.assign(url);
+    console.log('Opening URL in external browser:', url);
+    if (this.platform.is('hybrid')) {
+      try {
+        await InAppBrowser.openInExternalBrowser({ url });
+        return;
+      } catch (error) {
+        console.warn('InAppBrowser external open failed, falling back to window.open', error);
+      }
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 }

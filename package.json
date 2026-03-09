@@ -26,6 +26,7 @@
     "@capacitor/cli": "^7.4.5",
     "@capacitor/core": "^7.4.4",
     "@capacitor/device": "^7.0.3",
+    "@capacitor/inappbrowser": "^2.5.4",
     "@capacitor/status-bar": "^7.0.4",
     "@ionic/angular": "^8.0.0",
     "ionicons": "^7.0.0",
