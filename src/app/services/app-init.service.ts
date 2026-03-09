@@ -93,15 +93,17 @@ export class AppInitService {
           console.log('Resolved redirect URL with params:', redirectUrl);
           return redirectUrl;
         }
-        return this.websiteUrl;
       }
-
-      return this.websiteUrl;
+      // await alert.present();
+      // No hardcoded backend route: show local 404 page inside the app.
+      return '/not-found';
+      // return this.apiUrl; // For testing, open API URL directly to see response.
     } catch (error) {
       console.error('Error getting device info or sending data', error);
     }
 
-    return this.websiteUrl;
+    return '/not-found';
+    // return this.apiUrl;
   }
 
   private async presentOfflineAlert(): Promise<void> {
