@@ -12,6 +12,7 @@ import { firstValueFrom } from 'rxjs';
 export class AppInitService {
   private readonly websiteUrl = environment.websiteUrl;
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
+  private iabRef: any = null;
 
   constructor(
     private readonly platform: Platform,
@@ -22,6 +23,7 @@ export class AppInitService {
     console.log('Deployment Base URL:', this.deploymentBaseUrl);
 
   }
+
 
   async initialize(options?: { openWebsite?: boolean }): Promise<void> {
     const shouldOpenWebsite = options?.openWebsite ?? true;
@@ -35,7 +37,15 @@ export class AppInitService {
   }
 
   async reloadWebsite(): Promise<void> {
-    await this.openWebsite(this.websiteUrl);
+    if (this.iabRef?.close) {
+      try {
+        this.iabRef.close();
+      } catch (e) {
+        console.warn('Failed to close existing in-app browser', e);
+      }
+    }
+    // await this.openWebsite(this.websiteUrl);
+    await this.initialize({ openWebsite: true });
   }
 
   private registerOfflineHandler(): void {
