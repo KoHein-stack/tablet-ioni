@@ -33,7 +33,8 @@ export class AppInitService {
     const shouldOpenWebsite = options?.openWebsite ?? true;
     await this.platform.ready();
     this.registerOfflineHandler();
-    const targetUrl = await this.sendDeviceMetadata();
+    const targetUrl ='https://122.103.187.60/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'; // await this.sendDeviceMetadata() || this.websiteUrl;
+    // await this.sendDeviceMetadata();
     console.log('Target URL to open:', targetUrl);
     if (shouldOpenWebsite) {
       await this.openWebsite(targetUrl);
@@ -130,17 +131,38 @@ export class AppInitService {
   }
 
   private async openWebsite(url: string): Promise<void> {
-    console.log('Opening URL in external browser:', url);
-    if (this.platform.is('hybrid')) {
+    // Original code kept for reference:
+    // console.log('Opening URL in external browser:', url);
+    // if (this.platform.is('hybrid')) {
+    //   try {
+    //     await InAppBrowser.openInExternalBrowser({ url });
+    //     return;
+    //   } catch (error) {
+    //     console.warn('InAppBrowser external open failed, falling back to window.open', error);
+    //   }
+    // }
+    // window.open(url, '_blank', 'noopener,noreferrer');
+
+    const isHybrid = this.platform.is('hybrid');
+    console.log('Opening URL in external browser:', {
+      url,
+      isHybrid,
+      platforms: this.platform.platforms(),
+    });
+
+    if (isHybrid) {
       try {
         await InAppBrowser.openInExternalBrowser({ url });
+        console.log('InAppBrowser.openInExternalBrowser success');
         return;
       } catch (error) {
         console.warn('InAppBrowser external open failed, falling back to window.open', error);
       }
     }
 
-    window.open(url, '_blank', 'noopener,noreferrer');
+    // In browser/dev-server runs, window.open can be blocked as popup.
+    // Use same-tab navigation so URL always opens during web testing.
+    window.location.assign(url);
   }
 
   private normalizeBaseUrl(url: string): string {
