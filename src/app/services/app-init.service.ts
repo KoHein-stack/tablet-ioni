@@ -1,10 +1,33 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable, InjectionToken } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
 import { InAppBrowser } from '@capacitor/inappbrowser';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
 import { firstValueFrom } from 'rxjs';
+
+export interface CapacitorInAppBrowserPlugin {
+  openInExternalBrowser: typeof InAppBrowser.openInExternalBrowser;
+}
+
+export const CAPACITOR_INAPPBROWSER = new InjectionToken<CapacitorInAppBrowserPlugin>(
+  'CAPACITOR_INAPPBROWSER',
+  {
+    providedIn: 'root',
+    factory: () => InAppBrowser,
+  }
+);
+
+export interface UrlOpener {
+  assign(url: string): void;
+}
+
+export const URL_OPENER = new InjectionToken<UrlOpener>('URL_OPENER', {
+  providedIn: 'root',
+  factory: () => ({
+    assign: (url: string) => window.location.assign(url),
+  }),
+});
 
 @Injectable({
   providedIn: 'root',
@@ -22,7 +45,9 @@ export class AppInitService {
     private readonly platform: Platform,
     private readonly alertCtrl: AlertController,
     private readonly deviceService: DeviceService,
-    private readonly genexusService: GenexusService
+    private readonly genexusService: GenexusService,
+    @Inject(CAPACITOR_INAPPBROWSER) private readonly inAppBrowser: CapacitorInAppBrowserPlugin,
+    @Inject(URL_OPENER) private readonly urlOpener: UrlOpener
   ) {
     console.log('Deployment Base URL:', this.deploymentBaseUrl);
 
@@ -152,7 +177,7 @@ export class AppInitService {
 
     if (isHybrid) {
       try {
-        await InAppBrowser.openInExternalBrowser({ url });
+        await this.inAppBrowser.openInExternalBrowser({ url });
         console.log('InAppBrowser.openInExternalBrowser success');
         return;
       } catch (error) {
@@ -162,7 +187,7 @@ export class AppInitService {
 
     // In browser/dev-server runs, window.open can be blocked as popup.
     // Use same-tab navigation so URL always opens during web testing.
-    window.location.assign(url);
+    this.urlOpener.assign(url);
   }
 
   private normalizeBaseUrl(url: string): string {
