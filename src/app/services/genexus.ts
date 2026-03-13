@@ -11,7 +11,7 @@ export interface DeviceLoginResponse {
   providedIn: 'root',
 })
 export class GenexusService {
-  private readonly apiUrl = environment.apiUrl;
+  private readonly websiteUrl = environment.websiteUrl;
 
   constructor(private readonly http: HttpClient) { }
 
@@ -45,7 +45,7 @@ export class GenexusService {
     });
 
     console.log('Genexus request payload:', {
-      url: this.apiUrl,
+      url: this.websiteUrl,
       body,
       headers: {
         Manufacturer: name,
@@ -53,6 +53,6 @@ export class GenexusService {
       },
     });
 
-    return this.http.post<DeviceLoginResponse>(this.apiUrl, body, { headers });
+    return this.http.post<DeviceLoginResponse>(this.websiteUrl, body, { headers });
   }
 }

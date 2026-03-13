@@ -1,6 +1,15 @@
 import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
-import { InAppBrowser } from '@capacitor/inappbrowser';
+import {
+  InAppBrowser,
+  AndroidAnimation,
+  AndroidViewStyle,
+  DismissStyle,
+  iOSAnimation,
+  iOSViewStyle,
+  ToolbarPosition,
+  type WebViewOptions,
+} from '@capacitor/inappbrowser';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
@@ -15,7 +24,8 @@ export class AppInitService {
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
   private deviceId = 'unknown-device';
   private manufacturer = 'Unknown';
-  private iabRef: any;
+  private listenersReady = false;
+  private loadTimeoutId: number | null = null;
 
 
   constructor(
@@ -33,7 +43,9 @@ export class AppInitService {
     const shouldOpenWebsite = options?.openWebsite ?? true;
     await this.platform.ready();
     this.registerOfflineHandler();
-    const targetUrl ='https://122.103.187.60/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.z101_wp01_login'; // await this.sendDeviceMetadata() || this.websiteUrl;
+    // For client demos, configure the URL via `src/environments/environment*.ts`
+    // (or use the hidden Admin Settings screen if you added runtime switching).
+    const targetUrl = environment.loginUrl ?? this.websiteUrl; // or: (await this.sendDeviceMetadata()) || (environment.loginUrl ?? this.websiteUrl)
     // await this.sendDeviceMetadata();
     console.log('Target URL to open:', targetUrl);
     if (shouldOpenWebsite) {
@@ -42,9 +54,9 @@ export class AppInitService {
   }
 
   async reloadWebsite(): Promise<void> {
-    if (this.iabRef?.close) {
+    if (this.platform.is('hybrid')) {
       try {
-        this.iabRef.close();
+        await InAppBrowser.close();
       } catch (e) {
         console.warn('Failed to close existing in-app browser', e);
       }
@@ -144,7 +156,7 @@ export class AppInitService {
     // window.open(url, '_blank', 'noopener,noreferrer');
 
     const isHybrid = this.platform.is('hybrid');
-    console.log('Opening URL in external browser:', {
+    console.log('Opening URL in in-app webview:', {
       url,
       isHybrid,
       platforms: this.platform.platforms(),
@@ -152,17 +164,162 @@ export class AppInitService {
 
     if (isHybrid) {
       try {
-        await InAppBrowser.openInExternalBrowser({ url });
-        console.log('InAppBrowser.openInExternalBrowser success');
+        if (await this.handleHttpsIpCertificateMismatch(url)) {
+          return;
+        }
+
+        if (!this.listenersReady) {
+          this.listenersReady = true;
+          await InAppBrowser.addListener('browserPageLoaded', () => {
+            this.clearLoadTimeout();
+          });
+          await InAppBrowser.addListener('browserPageNavigationCompleted', (data) => {
+            console.log('WebView navigation completed:', data?.url);
+            this.clearLoadTimeout();
+          });
+          await InAppBrowser.addListener('browserClosed', () => {
+            this.clearLoadTimeout();
+          });
+        }
+
+        this.startLoadTimeout(url);
+        const webViewOptions: WebViewOptions = {
+          showURL: true,
+          showToolbar: true,
+          clearCache: false,
+          clearSessionCache: false,
+          mediaPlaybackRequiresUserAction: false,
+          closeButtonText: 'Close',
+          toolbarPosition: ToolbarPosition.TOP,
+          showNavigationButtons: true,
+          leftToRight: true,
+          android: {
+            allowZoom: true,
+            hardwareBack: true,
+            pauseMedia: false,
+          },
+          iOS: {
+            allowOverScroll: true,
+            enableViewportScale: true,
+            allowInLineMediaPlayback: true,
+            surpressIncrementalRendering: false,
+            viewStyle: iOSViewStyle.FULL_SCREEN,
+            animationEffect: iOSAnimation.COVER_VERTICAL,
+            allowsBackForwardNavigationGestures: true,
+          },
+        };
+
+        await InAppBrowser.openInWebView({ url, options: webViewOptions });
+        console.log('InAppBrowser.openInWebView success');
         return;
       } catch (error) {
-        console.warn('InAppBrowser external open failed, falling back to window.open', error);
+        this.clearLoadTimeout();
+        console.warn('InAppBrowser open failed, falling back to window.open', error);
       }
     }
 
     // In browser/dev-server runs, window.open can be blocked as popup.
     // Use same-tab navigation so URL always opens during web testing.
     window.location.assign(url);
+  }
+
+  private async handleHttpsIpCertificateMismatch(url: string): Promise<boolean> {
+    try {
+      const parsed = new URL(url);
+      const isHttps = parsed.protocol === 'https:';
+      const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname);
+      if (!isHttps || !isIPv4) return false;
+
+      // HTTPS on a raw IP commonly fails on Android WebView due to CERT_COMMON_NAME_INVALID (CN/SAN mismatch).
+      // Capacitor InAppBrowser WebView can't "continue anyway", so it looks like infinite loading.
+      const alert = await this.alertCtrl.create({
+        header: 'Certificate issue',
+        message:
+          'This URL uses HTTPS with an IP address. Android WebView will usually block it because the SSL certificate does not match the IP.\n\nUse a domain name with a valid certificate, or use HTTP for testing.',
+        buttons: [
+          {
+            text: 'Open System Browser',
+            handler: () => {
+              void InAppBrowser.openInSystemBrowser({
+                url,
+                options: {
+                  android: {
+                    showTitle: true,
+                    hideToolbarOnScroll: false,
+                    viewStyle: AndroidViewStyle.FULL_SCREEN,
+                    startAnimation: AndroidAnimation.FADE_IN,
+                    exitAnimation: AndroidAnimation.FADE_OUT,
+                  },
+                  iOS: {
+                    closeButtonText: DismissStyle.CLOSE,
+                    viewStyle: iOSViewStyle.FULL_SCREEN,
+                    animationEffect: iOSAnimation.COVER_VERTICAL,
+                    enableBarsCollapsing: false,
+                    enableReadersMode: false,
+                  },
+                },
+              });
+            },
+          },
+          { text: 'Cancel', role: 'cancel' },
+        ],
+      });
+      await alert.present();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private startLoadTimeout(url: string): void {
+    this.clearLoadTimeout();
+    this.loadTimeoutId = window.setTimeout(() => {
+      void this.presentLoadStuckAlert(url);
+    }, 15000);
+  }
+
+  private clearLoadTimeout(): void {
+    if (this.loadTimeoutId !== null) {
+      window.clearTimeout(this.loadTimeoutId);
+      this.loadTimeoutId = null;
+    }
+  }
+
+  private async presentLoadStuckAlert(url: string): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Still loading',
+      message:
+        'The page did not finish loading.\n\nCommon causes:\n- Invalid HTTPS certificate (e.g. https://IP address)\n- Server blocked / timeout\n- No internet connection',
+      buttons: [
+        {
+          text: 'Open System Browser',
+          handler: () => {
+            void InAppBrowser.openInSystemBrowser({
+              url,
+              options: {
+                android: {
+                  showTitle: true,
+                  hideToolbarOnScroll: false,
+                  viewStyle: AndroidViewStyle.FULL_SCREEN,
+                  startAnimation: AndroidAnimation.FADE_IN,
+                  exitAnimation: AndroidAnimation.FADE_OUT,
+                },
+                iOS: {
+                  closeButtonText: DismissStyle.CLOSE,
+                  viewStyle: iOSViewStyle.FULL_SCREEN,
+                  animationEffect: iOSAnimation.COVER_VERTICAL,
+                  enableBarsCollapsing: false,
+                  enableReadersMode: false,
+                },
+              },
+            });
+            return false;
+          },
+        },
+        { text: 'Retry' },
+      ],
+    });
+    await alert.present();
   }
 
   private normalizeBaseUrl(url: string): string {
