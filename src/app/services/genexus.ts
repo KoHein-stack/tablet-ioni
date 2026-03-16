@@ -21,7 +21,7 @@ export class GenexusService {
   constructor(
     private readonly http: HttpClient,
     private readonly nativeHttp: HTTP
-  ) {}
+  ) { }
 
   sendData(id: string, name: string): Observable<DeviceLoginResponse> {
     console.log('Sending data to Genexus API:', { id, name });
@@ -33,10 +33,9 @@ export class GenexusService {
     // };
 
     const body = {
-      deviceId: '0f952d37-8eac-4efc-b235-c02ae6571311',
+      deviceId: id,
       manufacturer: name,
-      P_deviceId: '0f952d37-8eac-4efc-b235-c02ae6571311',
-      P_manufacturer: name,
+
     };
 
     // Original hardcoded headers kept for reference:
@@ -49,15 +48,15 @@ export class GenexusService {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Manufacturer': name,
-      'DeviceId': '0f952d37-8eac-4efc-b235-c02ae6571311',
+      'DeviceId': id,
     });
-
+    //'0f952d37-8eac-4efc-b235-c02ae6571311'
     console.log('Genexus request payload:', {
       url: this.websiteUrl,
       body,
       headers: {
         Manufacturer: name,
-        DeviceId: '0f952d37-8eac-4efc-b235-c02ae6571311',
+        DeviceId: id,
       },
     });
 
@@ -76,15 +75,15 @@ export class GenexusService {
     return this.lastNativeCookieHeader;
   }
 
-  private async sendDataNative(body: any, manufacturer: string, id: string ): Promise<DeviceLoginResponse> {
-    
+  private async sendDataNative(body: any, manufacturer: string, id: string): Promise<DeviceLoginResponse> {
+
     if (environment.insecureSsl && !this.nativeTrustConfigured) {
       await this.nativeHttp.setServerTrustMode('nocheck');
       this.nativeTrustConfigured = true;
     }
 
     this.nativeHttp.setDataSerializer('json');
-//0f952d37-8eac-4efc-b235-c02ae6571311
+    //0f952d37-8eac-4efc-b235-c02ae6571311
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Manufacturer: manufacturer,
