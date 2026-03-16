@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.tkks.gic.tablet',
-  appName: 'TKKS',
+  appId: 'com.tkks.gic.tablet.old',
+  appName: 'Old-TKKS',
   webDir: 'www',
   plugins: {
     CapacitorHttp: {

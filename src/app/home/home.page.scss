@@ -202,3 +202,18 @@
     border-radius: 26px;
   }
 }
+
+.startup-loading {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.startup-loading p {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}

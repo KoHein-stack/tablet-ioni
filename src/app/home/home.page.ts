@@ -14,6 +14,7 @@ export class HomePage implements OnInit {
   deviceInfo: any;
   deviceId: any
   lastCheckedAt = new Date();
+  isInitializing = true;
 
   constructor(private readonly appInitService: AppInitService,
     private readonly deviceService: DeviceService,
@@ -21,11 +22,17 @@ export class HomePage implements OnInit {
   ) { }
 
   async ngOnInit(): Promise<void> {
-    this.deviceInfo = await this.deviceService.getDeviceInfo();
-    this.deviceId = await this.deviceService.getDeviceId();
-    this.lastCheckedAt = new Date();
-    console.log('Device Info:', this.deviceInfo);
+    this.isInitializing = true;
+    try {
+      this.deviceInfo = await this.deviceService.getDeviceInfo();
+      this.deviceId = await this.deviceService.getDeviceId();
+      await this.appInitService.initialize({ openWebsite: true });
+      this.lastCheckedAt = new Date();
+    } finally {
+      this.isInitializing = false;
+    }
   }
+
 
   get isOnline(): boolean {
     return this.networkService.isOnline;
