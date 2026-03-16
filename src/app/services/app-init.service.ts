@@ -2,14 +2,8 @@ import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
 import {
   InAppBrowser,
-  AndroidAnimation,
-  AndroidViewStyle,
-  DismissStyle,
-  iOSAnimation,
-  iOSViewStyle,
-  ToolbarPosition,
-  type WebViewOptions,
-} from '@capacitor/inappbrowser';
+  ToolBarType,
+} from '@capgo/inappbrowser';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
@@ -19,13 +13,14 @@ import { firstValueFrom } from 'rxjs';
   providedIn: 'root',
 })
 export class AppInitService {
-   private readonly apiUrl = environment.apiUrl;
+  private readonly apiUrl = environment.apiUrl;
   private readonly websiteUrl = this.normalizeBaseUrl(environment.websiteUrl);
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
   private deviceId = 'unknown-device';
   private manufacturer = 'Unknown';
   private listenersReady = false;
   private loadTimeoutId: number | null = null;
+  private openingWebView = false;
 
 
   constructor(
@@ -45,7 +40,8 @@ export class AppInitService {
     this.registerOfflineHandler();
     // For client demos, configure the URL via `src/environments/environment*.ts`
     // (or use the hidden Admin Settings screen if you added runtime switching).
-    const targetUrl = environment.loginUrl ?? this.websiteUrl; // or: (await this.sendDeviceMetadata()) || (environment.loginUrl ?? this.websiteUrl)
+    const targetUrl = await this.sendDeviceMetadata();
+    // environment.loginUrl ?? this.websiteUrl; // or: (await this.sendDeviceMetadata()) || (environment.loginUrl ?? this.websiteUrl)
     // await this.sendDeviceMetadata();
     console.log('Target URL to open:', targetUrl);
     if (shouldOpenWebsite) {
@@ -164,57 +160,59 @@ export class AppInitService {
 
     if (isHybrid) {
       try {
+        if (this.openingWebView) {
+          console.warn('WebView open already in progress; skipping duplicate open.', url);
+          return;
+        }
+        this.openingWebView = true;
+
         if (await this.handleHttpsIpCertificateMismatch(url)) {
           return;
         }
 
         if (!this.listenersReady) {
           this.listenersReady = true;
-          await InAppBrowser.addListener('browserPageLoaded', () => {
-            this.clearLoadTimeout();
+          await InAppBrowser.addListener('browserPageLoaded', () => this.clearLoadTimeout());
+          await InAppBrowser.addListener('urlChangeEvent', (data: any) => {
+            console.log('WebView URL changed:', data?.url);
           });
-          await InAppBrowser.addListener('browserPageNavigationCompleted', (data) => {
-            console.log('WebView navigation completed:', data?.url);
+          await InAppBrowser.addListener('pageLoadError', () => {
             this.clearLoadTimeout();
+            void this.presentLoadErrorAlert(url);
           });
-          await InAppBrowser.addListener('browserClosed', () => {
-            this.clearLoadTimeout();
-          });
+          await InAppBrowser.addListener('closeEvent', () => this.clearLoadTimeout());
         }
 
         this.startLoadTimeout(url);
-        const webViewOptions: WebViewOptions = {
-          showURL: true,
-          showToolbar: true,
-          clearCache: false,
-          clearSessionCache: false,
-          mediaPlaybackRequiresUserAction: false,
-          closeButtonText: 'Close',
-          toolbarPosition: ToolbarPosition.TOP,
-          showNavigationButtons: true,
-          leftToRight: true,
-          android: {
-            allowZoom: true,
-            hardwareBack: true,
-            pauseMedia: false,
-          },
-          iOS: {
-            allowOverScroll: true,
-            enableViewportScale: true,
-            allowInLineMediaPlayback: true,
-            surpressIncrementalRendering: false,
-            viewStyle: iOSViewStyle.FULL_SCREEN,
-            animationEffect: iOSAnimation.COVER_VERTICAL,
-            allowsBackForwardNavigationGestures: true,
-          },
-        };
 
-        await InAppBrowser.openInWebView({ url, options: webViewOptions });
-        console.log('InAppBrowser.openInWebView success');
+        const cookieHeader = this.genexusService.getLastNativeCookieHeader();
+        if (cookieHeader) {
+          console.log('Passing native cookie header into WebView:', cookieHeader);
+        }
+
+        try {
+          await InAppBrowser.close();
+        } catch {}
+
+        await InAppBrowser.openWebView({
+          url,
+          headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+          ignoreUntrustedSSLError: environment.insecureSsl === true,
+          toolbarType: ToolBarType.COMPACT,
+          visibleTitle: false,
+          showReloadButton: true,
+          isInspectable: environment.production !== true,
+          activeNativeNavigationForWebview: true,
+
+        });
+        console.log('InAppBrowser.openWebView success');
         return;
       } catch (error) {
         this.clearLoadTimeout();
         console.warn('InAppBrowser open failed, falling back to window.open', error);
+        void this.presentLoadErrorAlert(url);
+      } finally {
+        this.openingWebView = false;
       }
     }
 
@@ -225,6 +223,10 @@ export class AppInitService {
 
   private async handleHttpsIpCertificateMismatch(url: string): Promise<boolean> {
     try {
+      if (environment.insecureSsl === true) {
+        return false;
+      }
+
       const parsed = new URL(url);
       const isHttps = parsed.protocol === 'https:';
       const isIPv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname);
@@ -240,25 +242,7 @@ export class AppInitService {
           {
             text: 'Open System Browser',
             handler: () => {
-              void InAppBrowser.openInSystemBrowser({
-                url,
-                options: {
-                  android: {
-                    showTitle: true,
-                    hideToolbarOnScroll: false,
-                    viewStyle: AndroidViewStyle.FULL_SCREEN,
-                    startAnimation: AndroidAnimation.FADE_IN,
-                    exitAnimation: AndroidAnimation.FADE_OUT,
-                  },
-                  iOS: {
-                    closeButtonText: DismissStyle.CLOSE,
-                    viewStyle: iOSViewStyle.FULL_SCREEN,
-                    animationEffect: iOSAnimation.COVER_VERTICAL,
-                    enableBarsCollapsing: false,
-                    enableReadersMode: false,
-                  },
-                },
-              });
+              void InAppBrowser.open({ url });
             },
           },
           { text: 'Cancel', role: 'cancel' },
@@ -275,7 +259,7 @@ export class AppInitService {
     this.clearLoadTimeout();
     this.loadTimeoutId = window.setTimeout(() => {
       void this.presentLoadStuckAlert(url);
-    }, 15000);
+    }, 10000);
   }
 
   private clearLoadTimeout(): void {
@@ -294,29 +278,34 @@ export class AppInitService {
         {
           text: 'Open System Browser',
           handler: () => {
-            void InAppBrowser.openInSystemBrowser({
-              url,
-              options: {
-                android: {
-                  showTitle: true,
-                  hideToolbarOnScroll: false,
-                  viewStyle: AndroidViewStyle.FULL_SCREEN,
-                  startAnimation: AndroidAnimation.FADE_IN,
-                  exitAnimation: AndroidAnimation.FADE_OUT,
-                },
-                iOS: {
-                  closeButtonText: DismissStyle.CLOSE,
-                  viewStyle: iOSViewStyle.FULL_SCREEN,
-                  animationEffect: iOSAnimation.COVER_VERTICAL,
-                  enableBarsCollapsing: false,
-                  enableReadersMode: false,
-                },
-              },
-            });
+            void InAppBrowser.open({ url });
             return false;
           },
         },
-        { text: 'Retry' },
+        {
+          text: 'Retry',
+          handler: () => {
+            this.clearLoadTimeout();
+            void this.openWebsite(url);
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async presentLoadErrorAlert(url: string): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Webpage not available',
+      message: 'The page failed to load. This is often caused by an invalid HTTPS certificate (e.g. https://IP address).',
+      buttons: [
+        {
+          text: 'Open System Browser',
+          handler: () => {
+            void InAppBrowser.open({ url });
+          },
+        },
+        { text: 'Close', role: 'cancel' },
       ],
     });
     await alert.present();
@@ -328,4 +317,5 @@ export class AppInitService {
     }
     return url;
   }
+
 }

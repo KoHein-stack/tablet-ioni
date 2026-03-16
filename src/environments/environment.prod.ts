@@ -4,6 +4,7 @@ const BACKEND_ORIGIN = 'https://122.103.187.60';
 
 export const environment = {
   production: true,
+  insecureSsl: true,
 
   // For device/app builds use absolute backend URL (no Angular proxy on device):
   apiUrl: `${BACKEND_ORIGIN}/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.adevice_login`,

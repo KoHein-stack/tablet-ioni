@@ -4,6 +4,7 @@ const BACKEND_ORIGIN = 'https://122.103.187.60';
 
 export const environment = {
   production: false,
+  insecureSsl: true,
 
   // Web dev API: use Angular proxy (/gx -> proxy.conf.json target) to avoid CORS issues and allow easy switching between backends without changing code
   //development apiUrl: '/gx/tkz_gx18u10_wwp1534JavaPostgreSQL/com.tkzgx18u10wwp1534.adevice_login',
