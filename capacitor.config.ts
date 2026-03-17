@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
     allowNavigation: [
       // Use host patterns (not full URLs) so Capacitor matches redirects too.
       'localhost',
-      '172.16.205.15',
+      '172.16.205.62',
       '172.16.205.197',
       '192.168.105.114',
     ],

@@ -3,6 +3,7 @@ import { RefresherCustomEvent } from '@ionic/angular';
 import { AppInitService } from '../services/app-init.service';
 import { DeviceService } from '../services/device';
 import { GenexusService } from '../services/genexus';
+import { NetworkService } from '../services/network.service';
 
 @Component({
   selector: 'app-home',
@@ -17,7 +18,8 @@ export class HomePage implements OnInit {
 
   constructor(private readonly appInitService: AppInitService,
     private readonly deviceService: DeviceService,
-    private readonly genexusService: GenexusService
+    private readonly genexusService: GenexusService,
+    private readonly networkService: NetworkService
   ) { }
 
   async ngOnInit(): Promise<void> {
@@ -28,7 +30,7 @@ export class HomePage implements OnInit {
   }
 
   get isOnline(): boolean {
-    return navigator.onLine;
+    return this.networkService.isOnline;
   }
 
   async reload(): Promise<void> {
