@@ -1,7 +1,11 @@
 import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
-import { App as CapacitorApp } from '@capacitor/app';
 import { Router } from '@angular/router';
+import { NgZone } from '@angular/core';
+import {
+  InAppBrowser,
+  ToolBarType,
+} from '@capgo/inappbrowser';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
@@ -11,201 +15,209 @@ import { firstValueFrom } from 'rxjs';
   providedIn: 'root',
 })
 export class AppInitService {
-  private readonly apiUrl = environment.apiUrl;
-  private readonly websiteUrl = this.normalizeBaseUrl(environment.websiteUrl);
+  private readonly websiteUrl = /^https?:\/\//i.test(environment.websiteUrl)
+    ? environment.websiteUrl
+    : 'http://' + environment.websiteUrl;
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
-  private deviceId = 'unknown-device';
-  private manufacturer = 'Unknown';
-  private iabRef: any;
+  private listenersReady = false;
+  private openingWebView = false;
+  private lastOpenedUrl: string | null = null;
+
 
   constructor(
     private readonly platform: Platform,
     private readonly alertCtrl: AlertController,
-    private readonly router: Router,
     private readonly deviceService: DeviceService,
-    private readonly genexusService: GenexusService
+    private readonly genexusService: GenexusService,
+    private readonly router: Router,
+    private readonly zone: NgZone
   ) {
     console.log('Deployment Base URL:', this.deploymentBaseUrl);
-
   }
+
 
   async initialize(options?: { openWebsite?: boolean }): Promise<void> {
     const shouldOpenWebsite = options?.openWebsite ?? true;
     await this.platform.ready();
-    this.registerOfflineHandler();
+    // this.registerOfflineHandler();
     const targetUrl = await this.sendDeviceMetadata();
     console.log('Target URL to open:', targetUrl);
-    if (shouldOpenWebsite) {
+    if (shouldOpenWebsite && targetUrl) {
       await this.openWebsite(targetUrl);
     }
   }
 
   async reloadWebsite(): Promise<void> {
-    if (this.iabRef?.close) {
+    if (this.platform.is('hybrid')) {
       try {
-        this.iabRef.close();
+        await InAppBrowser.close();
       } catch (e) {
         console.warn('Failed to close existing in-app browser', e);
       }
     }
-    // await this.openWebsite(this.websiteUrl);
     await this.initialize({ openWebsite: true });
   }
 
-  private registerOfflineHandler(): void {
-    if (!navigator.onLine) {
-      void this.presentOfflineAlert();
-    }
+  // private registerOfflineHandler(): void {
+  //   if (!navigator.onLine) {
+  //     void this.presentOfflineAlert();
+  //   }
 
-    window.addEventListener('offline', () => {
-      void this.presentOfflineAlert();
-    });
-  }
+  //   window.addEventListener('offline', () => {
+  //     void this.presentOfflineAlert();
+  //   });
+  // }
 
-  private async sendDeviceMetadata(): Promise<string> {
+  private async sendDeviceMetadata(): Promise<string | null> {
     try {
+      let deviceId = 'Error: could not get ID';
       try {
-        this.deviceId = await this.deviceService.getDeviceId();
+        deviceId = await this.deviceService.getDeviceId();
       } catch (e: any) {
-        console.warn('Device ID read failed, using fallback value', e);
+        deviceId = `ID Error: ${e.message || JSON.stringify(e)}`;
       }
 
+      let manufacturer = 'Unknown';
       try {
         const deviceInfo = await this.deviceService.getDeviceInfo();
         console.log('AppInitService: Device Info:', deviceInfo);
-        this.manufacturer = deviceInfo.manufacturer ?? 'Unknown';
+        manufacturer = deviceInfo.manufacturer ?? 'Unknown';
       } catch (e: any) {
-        console.warn('Device info read failed, using fallback manufacturer', e);
+        manufacturer = `Info Error: ${e.message || JSON.stringify(e)}`;
       }
+
+      // const diagAlert = await this.alertCtrl.create({
+      //   header: 'Diagnostic Info',
+      //   message: `ID: ${deviceId}\nManufacturer: ${manufacturer}`,
+      //   buttons: ['OK']
+      // });
+      // await diagAlert.present();
 
       const res: DeviceLoginResponse = await firstValueFrom(
-        this.genexusService.sendData(this.deviceId, this.manufacturer)
+        this.genexusService.sendData(deviceId, manufacturer)
       );
-      const alert = await this.alertCtrl.create({
-        header: 'Server Response',
-        message: `res?.isAllowed: ${res?.isAllowed}, res?.redirectUrl: ${res?.redirectUrl}  `,
-        buttons: ['OK'],
-      });
-      await alert.present();
-      // console.log('sendData SUCCESS:', res);
+      console.log('sendData SUCCESS:', res);
 
-      // const res = await firstValueFrom(this.genexusService.sendData(deviceId, manufacturer));
-      // console.log('Success', res);
+      if (res?.isAllowed) {
+        console.log('Redirecting to:', res.redirectUrl);
+        if (res.redirectUrl) {
+          const normalizedRedirect = res.redirectUrl.replace(/^\/+/, '');
+          let redirectUrl = `${this.deploymentBaseUrl}/${normalizedRedirect}`;
+          console.log('Constructed redirect URL:', redirectUrl);
 
+          const connector = redirectUrl.includes('?') ? '&' : '?';
+          redirectUrl += `${connector}P_deviceId=${encodeURIComponent(deviceId)}&P_manufacturer=${encodeURIComponent(manufacturer)}`;
 
-      if (res?.isAllowed && res.redirectUrl) {
-        const redirectUrl = this.resolveServerRedirect(res.redirectUrl);
-        const trackedUrl = this.withDeviceParams(redirectUrl);
-        console.log('Resolved redirect URL:', trackedUrl);
-        return trackedUrl;
+          console.log('Resolved redirect URL with params:', redirectUrl);
+          return redirectUrl;
+        }
       }
-
-      // await alert.present();
-      // No hardcoded backend route: show local 404 page inside the app.
-      return '/not-found';
-      // return this.apiUrl; // For testing, open API URL directly to see response.
+      await this.navigateNotFound();
+      return null;
     } catch (error) {
       console.error('Error getting device info or sending data', error);
     }
 
-    return '/not-found';
-    // return this.apiUrl;
+    await this.navigateNotFound();
+    return null;
   }
 
-  private async presentOfflineAlert(): Promise<void> {
-    const alert = await this.alertCtrl.create({
-      header: 'No Internet Connection',
-      message: 'Please check your internet connection and try again.',
-      buttons: ['OK'],
-    });
-    await alert.present();
-  }
-
+  // private async presentOfflineAlert(): Promise<void> {
+  //   const alert = await this.alertCtrl.create({
+  //     header: 'No Internet Connection',
+  //     message: 'Please check your internet connection and try again.',
+  //     buttons: ['OK'],
+  //   });
+  //   await alert.present();
+  // }
 
   private async openWebsite(url: string): Promise<void> {
-    console.log('Attempting to open URL:', url);
-    // If it's an in-app route, use the SPA router (no external navigation).
-    if (url.startsWith('/')) {
-      console.log('Opening in-app route:', url);
-      await this.router.navigateByUrl(url, { replaceUrl: true });
-      return;
-    }
+    const isHybrid = this.platform.is('hybrid');
+    console.log('Opening URL in in-app webview:', {
+      url,
+      isHybrid,
+      platforms: this.platform.platforms(),
+    });
 
-    const trackedUrl = this.withDeviceParams(url);
+    if (isHybrid) {
+      try {
+        if (this.openingWebView) {
+          console.warn('WebView open already in progress; skipping duplicate open.', url);
+          return;
+        }
+        this.openingWebView = true;
+        this.lastOpenedUrl = url;
 
-    if (this.platform.is('hybrid')) {
-      const w: any = window as any;
-      const iab = w?.cordova?.InAppBrowser;
-      if (iab?.open) {
-        this.iabRef = iab.open(
-          trackedUrl,
-          '_blank',
-          'location=no,toolbar=no,hideurlbar=yes,zoom=no,hardwareback=yes'
-        );
-
-        // If user swipes/back-closes the website view, exit app to avoid white startup page.
-        if (this.iabRef?.addEventListener) {
-          this.iabRef.addEventListener('exit', () => {
-            void CapacitorApp.exitApp();
+        if (!this.listenersReady) {
+          this.listenersReady = true;
+          await InAppBrowser.addListener('pageLoadError', () => {
+            const failedUrl = this.lastOpenedUrl ?? url;
+            // void this.presentLoadErrorAlert(failedUrl);
+            // void this.navigateHome();
+          });
+          await InAppBrowser.addListener('closeEvent', () => {
+            void this.navigateHome();
           });
         }
+
+        const cookieHeader = this.genexusService.getLastNativeCookieHeader();
+        if (cookieHeader) {
+          console.log('Passing native cookie header into WebView:', cookieHeader);
+        }
+
+        try {
+          await InAppBrowser.close();
+        } catch {}
+
+        await InAppBrowser.openWebView({
+          url,
+          headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+          ignoreUntrustedSSLError: environment.insecureSsl === true,
+          toolbarType: ToolBarType.COMPACT,
+          visibleTitle: false,
+          showReloadButton: true,
+          isInspectable: environment.production !== true,
+
+        });
+        console.log('InAppBrowser.openWebView success');
         return;
+      } catch (error) {
+        console.warn('InAppBrowser open failed, falling back to window.open', error);
+        // void this.presentLoadErrorAlert(url);
+      } finally {
+        this.openingWebView = false;
       }
     }
 
-    console.log('Opening URL in app webview:', trackedUrl);
-    window.location.assign(trackedUrl);
+    // In browser/dev-server runs, window.open can be blocked as popup.
+    // Use same-tab navigation so URL always opens during web testing.
+    window.location.assign(url);
   }
 
-  private withDeviceParams(url: string): string {
-    if (!url.startsWith(this.deploymentBaseUrl)) {
-      return url;
-    }
+  // private async presentLoadErrorAlert(url: string): Promise<void> {
+  //   const alert = await this.alertCtrl.create({
+  //     header: 'Webpage not available',
+  //     message: 'The page failed to load. This is often caused by an invalid HTTPS certificate (e.g. https://IP address).',
+  //     buttons: [
+  //       {
+  //         text: 'Open System Browser',
+  //         handler: () => {
+  //           void InAppBrowser.open({ url });
+  //         },
+  //       },
+  //       { text: 'Close', role: 'cancel' },
+  //     ],
+  //   });
+  //   await alert.present();
+  // }
 
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}deviceId=${encodeURIComponent(this.deviceId)}&manufacturer=${encodeURIComponent(this.manufacturer)}`;
+  private async navigateHome(): Promise<void> {
+    sessionStorage.setItem('skipDeviceCheck', '1');
+    this.router.navigate(['/home'], { state: { skipDeviceCheck: true }, replaceUrl: true });
   }
 
-  private normalizeBaseUrl(url: string): string {
-    const trimmed = (url ?? '').trim();
-    if (!trimmed) {
-      return '';
-    }
-
-    const absolute = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, '')}`;
-    const parsed = new URL(absolute);
-    if (!parsed.pathname.endsWith('/')) {
-      parsed.pathname = `${parsed.pathname}/`;
-    }
-    return parsed.toString();
-  }
-
-  private resolveServerRedirect(redirectUrl: string): string {
-    const raw = (redirectUrl ?? '').trim();
-    if (!raw) {
-      return '/not-found';
-    }
-
-    if (/^https?:\/\//i.test(raw)) {
-      return raw;
-    }
-
-    if (/^\/\//.test(raw)) {
-      return `https:${raw}`;
-    }
-
-    if (/^[a-z0-9.-]+:\d{1,5}\//i.test(raw)) {
-      return `https://${raw.replace(/^\/+/, '')}`;
-    }
-
-    const base = new URL(this.websiteUrl);
-    const basePath = base.pathname.replace(/\/+$/, '');
-    const basePathNoLead = basePath.replace(/^\/+/, '');
-    const normalized = raw.replace(/^\/+/, '');
-    if (basePathNoLead && normalized.toLowerCase().startsWith(`${basePathNoLead.toLowerCase()}/`)) {
-      return `${base.origin}/${normalized}`;
-    }
-
-    return new URL(normalized, `${base.origin}${basePath}/`).toString();
+  private async navigateNotFound(): Promise<void> {
+    // await this.zone.run(() => this.router.navigate(['/not-found']));
+    this.router.navigate(['/not-found']);
   }
 }

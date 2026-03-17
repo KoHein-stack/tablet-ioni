@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.tkks.gic.tablet"
+    namespace "com.tkks.gic.tablet.old"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.tkks.gic.tablet"
+        applicationId "com.tkks.gic.tablet.old"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

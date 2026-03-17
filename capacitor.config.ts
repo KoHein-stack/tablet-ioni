@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.tkks.gic.tablet',
-  appName: 'TKKS',
+  appId: 'com.tkks.gic.tablet.old',
+  appName: 'Old-TKKS',
   webDir: 'www',
   plugins: {
     CapacitorHttp: {
@@ -10,18 +10,11 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    // url : "http://172.16.205.15:8080/DeploymentUnit2_20260224215411/com.testing.adevice_login",
+    // url: 'http://172.16.205.197:8080/DeploymentUnit2_20260224215411/com.testing.adevice_login',
     cleartext: true,
     androidScheme: 'http',
     iosScheme: 'http',
-    // If the target host is not listed here, Android may hand navigation off to Chrome.
-    allowNavigation: [
-      // Use host patterns (not full URLs) so Capacitor matches redirects too.
-      'localhost',
-      '172.16.205.62',
-      '172.16.205.197',
-      '192.168.105.114',
-    ],
+    allowNavigation: ['http://localhost:*', 'http://172.16.205.197:8080', 'https://122.103.187.60'],
   },
   android: {
     allowMixedContent: true,
