@@ -21,30 +21,47 @@ export class HomePage implements OnInit {
     private readonly deviceService: DeviceService,
     private readonly networkService: NetworkService,
     private readonly router: Router
-  ) { }
+  ) {}
 
   async ngOnInit(): Promise<void> {
-    this.deviceInfo = await this.deviceService.getDeviceInfo();
-      this.deviceId = await this.deviceService.getDeviceId();
     // If skipDeviceCheck flag is set, skip device initialization and just show the home page.
     if (this.shouldSkipDeviceCheck()) {
       this.isInitializing = false;
+      void this.loadDeviceInfo();
       return;
     }
 
     this.isInitializing = true;
     try {
-      
+      await this.loadDeviceInfo();
       await this.appInitService.initialize({ openWebsite: true });
       this.lastCheckedAt = new Date();
     } finally {
       this.isInitializing = false;
     }
+
+  }
+
+  private async loadDeviceInfo(): Promise<void> {
+    try {
+      this.deviceInfo = await this.deviceService.getDeviceInfo();
+      this.deviceId = await this.deviceService.getDeviceId();
+    } catch (error) {
+      console.warn('Failed to load device info', error);
+    }
   }
 
   private shouldSkipDeviceCheck(): boolean {
-    const state = this.router.getCurrentNavigation()?.extras?.state as { skipDeviceCheck?: boolean } | undefined;
-    return state?.skipDeviceCheck === true;
+    const nav = this.router.getCurrentNavigation();
+    const state = (nav?.extras?.state ?? history.state) as { skipDeviceCheck?: boolean } | undefined;
+    const storageSkip = sessionStorage.getItem('skipDeviceCheck') === '1';
+    const shouldSkip = state?.skipDeviceCheck === true || storageSkip;
+    if (shouldSkip) {
+      const { skipDeviceCheck, ...rest } = (state ?? {}) as Record<string, any>;
+      history.replaceState(rest, document.title);
+      sessionStorage.removeItem('skipDeviceCheck');
+    }
+    return shouldSkip;
   }
 
 

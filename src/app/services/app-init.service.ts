@@ -42,7 +42,7 @@ export class AppInitService {
     // this.registerOfflineHandler();
     const targetUrl = await this.sendDeviceMetadata();
     console.log('Target URL to open:', targetUrl);
-    if (shouldOpenWebsite) {
+    if (shouldOpenWebsite && targetUrl) {
       await this.openWebsite(targetUrl);
     }
   }
@@ -68,7 +68,7 @@ export class AppInitService {
   //   });
   // }
 
-  private async sendDeviceMetadata(): Promise<string> {
+  private async sendDeviceMetadata(): Promise<string | null> {
     try {
       let deviceId = 'Error: could not get ID';
       try {
@@ -112,12 +112,14 @@ export class AppInitService {
           return redirectUrl;
         }
       }
-      return '/not-found';
+      await this.navigateNotFound();
+      return null;
     } catch (error) {
       console.error('Error getting device info or sending data', error);
     }
 
-    return '/not-found';
+    await this.navigateNotFound();
+    return null;
   }
 
   // private async presentOfflineAlert(): Promise<void> {
@@ -151,7 +153,7 @@ export class AppInitService {
           await InAppBrowser.addListener('pageLoadError', () => {
             const failedUrl = this.lastOpenedUrl ?? url;
             // void this.presentLoadErrorAlert(failedUrl);
-            void this.navigateHome();
+            // void this.navigateHome();
           });
           await InAppBrowser.addListener('closeEvent', () => {
             void this.navigateHome();
@@ -175,7 +177,6 @@ export class AppInitService {
           visibleTitle: false,
           showReloadButton: true,
           isInspectable: environment.production !== true,
-          activeNativeNavigationForWebview: true,
 
         });
         console.log('InAppBrowser.openWebView success');
@@ -211,6 +212,12 @@ export class AppInitService {
   // }
 
   private async navigateHome(): Promise<void> {
-    await this.zone.run(() => this.router.navigate(['/home']));
+    sessionStorage.setItem('skipDeviceCheck', '1');
+    this.router.navigate(['/home'], { state: { skipDeviceCheck: true }, replaceUrl: true });
+  }
+
+  private async navigateNotFound(): Promise<void> {
+    // await this.zone.run(() => this.router.navigate(['/not-found']));
+    this.router.navigate(['/not-found']);
   }
 }
