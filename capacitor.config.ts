@@ -10,11 +10,14 @@ const config: CapacitorConfig = {
     },
   },
   server: {
-    // url: 'http://172.16.205.197:8080/DeploymentUnit2_20260224215411/com.testing.adevice_login',
+    // url: 'http://172.16.205.179:8080/DeploymentUnit1_20260312164752/com.tkzgx18u10wwp1534.adevice_login',
     cleartext: true,
     androidScheme: 'http',
     iosScheme: 'http',
-    allowNavigation: ['http://localhost:*', 'http://172.16.205.197:8080', 'https://122.103.187.60'],
+    allowNavigation: ['http://localhost:*',
+      'http://172.16.205.197:8080',
+      'http://172.16.205.179:8080',
+      'https://122.103.187.60'],
   },
   android: {
     allowMixedContent: true,

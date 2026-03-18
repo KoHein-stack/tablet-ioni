@@ -91,9 +91,7 @@ export class GenexusService {
       Accept: 'application/json, text/plain, */*',
     };
 
-    const url = environment.apiUrl?.startsWith('http')
-      ? environment.apiUrl
-      : this.websiteUrl;
+    const url = this.resolveNativeApiUrl();
 
     const res: HTTPResponse = await this.nativeHttp.sendRequest(url, {
       method: 'post',
@@ -111,5 +109,25 @@ export class GenexusService {
     }
 
     return res.data as DeviceLoginResponse;
+  }
+
+  private resolveNativeApiUrl(): string {
+    const apiUrl = (environment.apiUrl ?? '').trim();
+    if (/^https?:\/\//i.test(apiUrl)) {
+      return apiUrl;
+    }
+
+    try {
+      const base = new URL(this.websiteUrl);
+      if (apiUrl.startsWith('/gx/')) {
+        return `${base.origin}${apiUrl.replace(/^\/gx/, '')}`;
+      }
+      if (apiUrl.startsWith('/')) {
+        return `${base.origin}${apiUrl}`;
+      }
+      return new URL(apiUrl, base.toString()).toString();
+    } catch {
+      return apiUrl || this.websiteUrl;
+    }
   }
 }

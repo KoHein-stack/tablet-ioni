@@ -1,11 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AlertController, Platform } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { NgZone } from '@angular/core';
-import {
-  InAppBrowser,
-  ToolBarType,
-} from '@capgo/inappbrowser';
+import { App as CapacitorApp } from '@capacitor/app';
 import { DeviceService } from './device';
 import { DeviceLoginResponse, GenexusService } from './genexus';
 import { environment } from 'src/environments/environment';
@@ -19,9 +15,9 @@ export class AppInitService {
     ? environment.websiteUrl
     : 'http://' + environment.websiteUrl;
   private readonly deploymentBaseUrl = this.websiteUrl.substring(0, this.websiteUrl.lastIndexOf('/'));
-  private listenersReady = false;
-  private openingWebView = false;
-  private lastOpenedUrl: string | null = null;
+  private deviceId = 'unknown-device';
+  private manufacturer = 'Unknown';
+  private iabRef: any;
 
 
   constructor(
@@ -29,8 +25,7 @@ export class AppInitService {
     private readonly alertCtrl: AlertController,
     private readonly deviceService: DeviceService,
     private readonly genexusService: GenexusService,
-    private readonly router: Router,
-    private readonly zone: NgZone
+    private readonly router: Router
   ) {
     console.log('Deployment Base URL:', this.deploymentBaseUrl);
   }
@@ -48,11 +43,13 @@ export class AppInitService {
   }
 
   async reloadWebsite(): Promise<void> {
-    if (this.platform.is('hybrid')) {
+    if (this.iabRef?.close) {
       try {
-        await InAppBrowser.close();
+        this.iabRef.close();
       } catch (e) {
         console.warn('Failed to close existing in-app browser', e);
+      } finally {
+        this.iabRef = null;
       }
     }
     await this.initialize({ openWebsite: true });
@@ -70,20 +67,20 @@ export class AppInitService {
 
   private async sendDeviceMetadata(): Promise<string | null> {
     try {
-      let deviceId = 'Error: could not get ID';
       try {
-        deviceId = await this.deviceService.getDeviceId();
+        this.deviceId = await this.deviceService.getDeviceId();
       } catch (e: any) {
-        deviceId = `ID Error: ${e.message || JSON.stringify(e)}`;
+        this.deviceId = 'unknown-device';
+        console.warn('Device ID read failed, using fallback value', e);
       }
 
-      let manufacturer = 'Unknown';
       try {
         const deviceInfo = await this.deviceService.getDeviceInfo();
         console.log('AppInitService: Device Info:', deviceInfo);
-        manufacturer = deviceInfo.manufacturer ?? 'Unknown';
+        this.manufacturer = deviceInfo.manufacturer ?? 'Unknown';
       } catch (e: any) {
-        manufacturer = `Info Error: ${e.message || JSON.stringify(e)}`;
+        this.manufacturer = 'Unknown';
+        console.warn('Device info read failed, using fallback manufacturer', e);
       }
 
       // const diagAlert = await this.alertCtrl.create({
@@ -94,7 +91,7 @@ export class AppInitService {
       // await diagAlert.present();
 
       const res: DeviceLoginResponse = await firstValueFrom(
-        this.genexusService.sendData(deviceId, manufacturer)
+        this.genexusService.sendData(this.deviceId, this.manufacturer)
       );
       console.log('sendData SUCCESS:', res);
 
@@ -106,7 +103,7 @@ export class AppInitService {
           console.log('Constructed redirect URL:', redirectUrl);
 
           const connector = redirectUrl.includes('?') ? '&' : '?';
-          redirectUrl += `${connector}P_deviceId=${encodeURIComponent(deviceId)}&P_manufacturer=${encodeURIComponent(manufacturer)}`;
+          redirectUrl += `${connector}P_deviceId=${encodeURIComponent(this.deviceId)}&P_manufacturer=${encodeURIComponent(this.manufacturer)}`;
 
           console.log('Resolved redirect URL with params:', redirectUrl);
           return redirectUrl;
@@ -132,66 +129,51 @@ export class AppInitService {
   // }
 
   private async openWebsite(url: string): Promise<void> {
-    const isHybrid = this.platform.is('hybrid');
-    console.log('Opening URL in in-app webview:', {
-      url,
-      isHybrid,
-      platforms: this.platform.platforms(),
-    });
+    console.log('Attempting to open URL:', url);
+    // If it's an in-app route, use the SPA router (no external navigation).
+    if (url.startsWith('/')) {
+      console.log('Opening in-app route:', url);
+      await this.router.navigateByUrl(url, { replaceUrl: true });
+      return;
+    }
 
-    if (isHybrid) {
-      try {
-        if (this.openingWebView) {
-          console.warn('WebView open already in progress; skipping duplicate open.', url);
-          return;
-        }
-        this.openingWebView = true;
-        this.lastOpenedUrl = url;
+    const trackedUrl = this.withDeviceParams(url);
 
-        if (!this.listenersReady) {
-          this.listenersReady = true;
-          await InAppBrowser.addListener('pageLoadError', () => {
-            const failedUrl = this.lastOpenedUrl ?? url;
-            // void this.presentLoadErrorAlert(failedUrl);
-            // void this.navigateHome();
+    if (this.platform.is('hybrid')) {
+      const w: any = window as any;
+      const iab = w?.cordova?.InAppBrowser;
+      if (iab?.open) {
+        this.iabRef = iab.open(
+          trackedUrl,
+          '_blank',
+          'location=no,toolbar=no,hideurlbar=yes,zoom=no,hardwareback=yes'
+        );
+
+        // If user swipes/back-closes the website view, exit app to avoid white startup page.
+        if (this.iabRef?.addEventListener) {
+          this.iabRef.addEventListener('exit', () => {
+            void CapacitorApp.exitApp();
           });
-          await InAppBrowser.addListener('closeEvent', () => {
-            void this.navigateHome();
-          });
         }
-
-        const cookieHeader = this.genexusService.getLastNativeCookieHeader();
-        if (cookieHeader) {
-          console.log('Passing native cookie header into WebView:', cookieHeader);
-        }
-
-        try {
-          await InAppBrowser.close();
-        } catch {}
-
-        await InAppBrowser.openWebView({
-          url,
-          headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
-          ignoreUntrustedSSLError: environment.insecureSsl === true,
-          toolbarType: ToolBarType.COMPACT,
-          visibleTitle: false,
-          showReloadButton: true,
-          isInspectable: environment.production !== true,
-
-        });
-        console.log('InAppBrowser.openWebView success');
         return;
-      } catch (error) {
-        console.warn('InAppBrowser open failed, falling back to window.open', error);
-        // void this.presentLoadErrorAlert(url);
-      } finally {
-        this.openingWebView = false;
       }
     }
 
-    // In browser/dev-server runs, window.open can be blocked as popup.
-    // Use same-tab navigation so URL always opens during web testing.
-    window.location.assign(url);
+    console.log('Opening URL in app webview:', trackedUrl);
+    window.location.assign(trackedUrl);
+  }
+
+  private withDeviceParams(url: string): string {
+    if (!url.startsWith(this.deploymentBaseUrl)) {
+      return url;
+    }
+
+    if (/[?&]P_deviceId=/.test(url) || /[?&]P_manufacturer=/.test(url)) {
+      return url;
+    }
+
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}P_deviceId=${encodeURIComponent(this.deviceId)}&P_manufacturer=${encodeURIComponent(this.manufacturer)}`;
   }
 
   // private async presentLoadErrorAlert(url: string): Promise<void> {
