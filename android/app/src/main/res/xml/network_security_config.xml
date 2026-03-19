@@ -10,7 +10,7 @@
 
   <!-- Allow HTTP only for internal servers -->
   <domain-config cleartextTrafficPermitted="true">
-    <domain includeSubdomains="true">172.16.205.62</domain>
+    <domain includeSubdomains="true">172.16.205.172</domain>
     <domain includeSubdomains="true">172.16.205.15</domain>
     <domain includeSubdomains="true">172.16.205.197</domain>
     <domain includeSubdomains="true">192.168.105.114</domain>

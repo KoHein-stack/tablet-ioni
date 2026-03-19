@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
     iosScheme: 'http',
     allowNavigation: ['http://localhost:*',
       'http://172.16.205.197:8080',
-      'http://172.16.205.179:8080',
+      'http://172.16.205.172:8080',
       'https://122.103.187.60'],
   },
   android: {
